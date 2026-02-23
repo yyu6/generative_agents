@@ -5,6 +5,7 @@ File: gpt_structure.py
 Description: Wrapper functions for calling OpenAI APIs.
 """
 import json
+import os
 import random
 import openai
 import time 
@@ -12,6 +13,26 @@ import time
 from utils import *
 
 openai.api_key = openai_api_key
+if os.getenv("OPENAI_API_BASE"):
+  openai.api_base = os.getenv("OPENAI_API_BASE")
+
+DEFAULT_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+
+
+def _resolve_chat_model(gpt_parameter=None, fallback_model=None):
+  env_model = os.getenv("OPENAI_CHAT_MODEL")
+  if env_model:
+    return env_model
+
+  if gpt_parameter and isinstance(gpt_parameter, dict):
+    engine = gpt_parameter.get("engine")
+    if isinstance(engine, str) and engine.startswith("gpt-"):
+      return engine
+
+  if fallback_model:
+    return fallback_model
+
+  return DEFAULT_CHAT_MODEL
 
 def temp_sleep(seconds=0.1):
   time.sleep(seconds)
@@ -20,7 +41,7 @@ def ChatGPT_single_request(prompt):
   temp_sleep()
 
   completion = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo", 
+    model=_resolve_chat_model(fallback_model="gpt-4o-mini"), 
     messages=[{"role": "user", "content": prompt}]
   )
   return completion["choices"][0]["message"]["content"]
@@ -46,13 +67,13 @@ def GPT4_request(prompt):
 
   try: 
     completion = openai.ChatCompletion.create(
-    model="gpt-4", 
+    model=_resolve_chat_model(fallback_model="gpt-4o-mini"), 
     messages=[{"role": "user", "content": prompt}]
     )
     return completion["choices"][0]["message"]["content"]
   
-  except: 
-    print ("ChatGPT ERROR")
+  except Exception as e: 
+    print (f"OPENAI ERROR [{type(e).__name__}]: {e}")
     return "ChatGPT ERROR"
 
 
@@ -71,13 +92,13 @@ def ChatGPT_request(prompt):
   # temp_sleep()
   try: 
     completion = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo", 
+    model=_resolve_chat_model(fallback_model="gpt-4o-mini"), 
     messages=[{"role": "user", "content": prompt}]
     )
     return completion["choices"][0]["message"]["content"]
   
-  except: 
-    print ("ChatGPT ERROR")
+  except Exception as e: 
+    print (f"OPENAI ERROR [{type(e).__name__}]: {e}")
     return "ChatGPT ERROR"
 
 
@@ -207,21 +228,22 @@ def GPT_request(prompt, gpt_parameter):
     a str of GPT-3's response. 
   """
   temp_sleep()
+  model = _resolve_chat_model(gpt_parameter=gpt_parameter,
+                              fallback_model="gpt-4o-mini")
   try: 
-    response = openai.Completion.create(
-                model=gpt_parameter["engine"],
-                prompt=prompt,
+    response = openai.ChatCompletion.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
                 temperature=gpt_parameter["temperature"],
                 max_tokens=gpt_parameter["max_tokens"],
                 top_p=gpt_parameter["top_p"],
                 frequency_penalty=gpt_parameter["frequency_penalty"],
                 presence_penalty=gpt_parameter["presence_penalty"],
-                stream=gpt_parameter["stream"],
                 stop=gpt_parameter["stop"],)
-    return response.choices[0].text
-  except: 
-    print ("TOKEN LIMIT EXCEEDED")
-    return "TOKEN LIMIT EXCEEDED"
+    return response["choices"][0]["message"]["content"]
+  except Exception as e: 
+    print (f"OPENAI ERROR [{type(e).__name__}]: {e}")
+    return f"OPENAI ERROR [{type(e).__name__}]"
 
 
 def generate_prompt(curr_input, prompt_lib_file): 
@@ -309,7 +331,6 @@ if __name__ == '__main__':
                                  True)
 
   print (output)
-
 
 
 
