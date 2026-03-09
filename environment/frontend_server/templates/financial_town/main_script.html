@@ -1,0 +1,323 @@
+<script type="text/javascript">
+  let trendChart = null;
+
+  function fmtPct(v) {
+    if (v === null || v === undefined || isNaN(v)) return "-";
+    return (v * 100).toFixed(2) + "%";
+  }
+
+  function fmtMoney(v) {
+    if (v === null || v === undefined || isNaN(v)) return "-";
+    return "$" + Number(v).toLocaleString(undefined, {maximumFractionDigits: 2});
+  }
+
+  function setStatus(msg, isError) {
+    const el = $("#runStatus");
+    el.text(msg);
+    el.css("color", isError ? "#b03535" : "#666");
+  }
+
+  function renderPolicyMacro(policy, macro, runContext) {
+    const html = [
+      "<div><strong>Scenario:</strong> " + runContext.scenario + "</div>",
+      "<div><strong>Profile:</strong> " + (runContext.population_profile || "-") + "</div>",
+      "<div><strong>Active Agent:</strong> " + (runContext.active_agent_name || "-") + "</div>",
+      "<div><strong>Scripted Population:</strong> " + (runContext.scripted_population_size || "-") + "</div>",
+      "<div><strong>LLM Agents:</strong> " + ((runContext.enable_llm_agents) ? "enabled" : "disabled") + "</div>",
+      "<div><strong>LLM Provider/Model:</strong> " + (runContext.llm_provider || "-") + " / " + (runContext.llm_model || "-") + "</div>",
+      "<div><strong>LLM-Economist:</strong> " + ((runContext.enable_llm_economist) ? "enabled" : "disabled") + " (every " + (runContext.llm_economist_every_steps || "-") + " steps)</div>",
+      "<div><strong>Output:</strong> " + runContext.output_dir + "</div>",
+      "<hr style='margin: 8px 0;'>",
+      "<div><strong>Policy</strong></div>",
+      "<div>Income tax: " + fmtPct(policy.income_tax_rate) + "</div>",
+      "<div>Payroll tax: " + fmtPct(policy.payroll_tax_rate) + "</div>",
+      "<div>Central bank rate: " + fmtPct(policy.central_bank_rate) + "</div>",
+      "<div>Layoff rate: " + fmtPct(policy.layoff_rate) + "</div>",
+      "<div>Housing subsidy: " + fmtMoney(policy.housing_subsidy) + "</div>",
+      "<div>Fraud detection strength: " + fmtPct(policy.fraud_detection_strength) + "</div>",
+      "<hr style='margin: 8px 0;'>",
+      "<div><strong>Macro</strong></div>",
+      "<div>GDP growth: " + fmtPct(macro.gdp_growth) + "</div>",
+      "<div>Inflation: " + fmtPct(macro.inflation) + "</div>",
+      "<div>Unemployment: " + fmtPct(macro.unemployment_rate) + "</div>",
+      "<div>Housing growth: " + fmtPct(macro.housing_growth) + "</div>"
+    ];
+    $("#policyMacroSummary").html(html.join(""));
+  }
+
+  function renderStanfordExport(stanfordExport) {
+    if (!stanfordExport || !stanfordExport.enabled) {
+      $("#stanfordExportSummary").html("<div>Stanford export disabled for this run.</div>");
+      return;
+    }
+    const replayUrl = stanfordExport.replay_url || "";
+    const simulatorHomeUrl = stanfordExport.simulator_home_url || "";
+    const html = [
+      "<div><strong>sim_code:</strong> " + (stanfordExport.sim_code || "-") + "</div>",
+      "<div><strong>fork_sim_code:</strong> " + (stanfordExport.fork_sim_code || "-") + "</div>",
+      "<div><strong>storage:</strong> " + (stanfordExport.storage_dir || "-") + "</div>",
+      "<hr style='margin: 8px 0;'>",
+      replayUrl ? ("<div><a href='" + replayUrl + "' target='_blank'>Open Replay</a></div>") : "",
+      simulatorHomeUrl ? ("<div><a href='" + simulatorHomeUrl + "' target='_blank'>Open Simulator Home</a></div>") : ""
+    ];
+    $("#stanfordExportSummary").html(html.join(""));
+  }
+
+  function renderKpis(finalMetrics) {
+    $("#kpiPopulation").text(finalMetrics.population || "-");
+    $("#kpiEmployment").text(fmtPct(finalMetrics.employed_rate));
+    $("#kpiDebt").text(fmtMoney(finalMetrics.total_debt));
+    $("#kpiFraud").text(finalMetrics.fraudulent_txn_total || 0);
+  }
+
+  function renderTrend(history) {
+    const labels = history.map(x => "S" + x.step);
+    const employed = history.map(x => (x.employed_rate || 0) * 100);
+    const debt = history.map(x => x.total_debt || 0);
+    const fraud = history.map(x => x.fraudulent_txn_step || 0);
+    const interactions = history.map(x => x.interaction_events_step || 0);
+    const llmCalls = history.map(x => x.llm_calls_step || 0);
+
+    const ctx = document.getElementById("trendChart");
+    if (!ctx) return;
+    if (trendChart) trendChart.destroy();
+
+    trendChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Employed Rate (%)",
+            data: employed,
+            borderColor: "#1565c0",
+            backgroundColor: "rgba(21, 101, 192, 0.12)",
+            yAxisID: "y",
+            tension: 0.25
+          },
+          {
+            label: "Total Debt ($)",
+            data: debt,
+            borderColor: "#2e7d32",
+            backgroundColor: "rgba(46, 125, 50, 0.12)",
+            yAxisID: "y1",
+            tension: 0.25
+          },
+          {
+            label: "Fraud Tx (step)",
+            data: fraud,
+            borderColor: "#ad1457",
+            backgroundColor: "rgba(173, 20, 87, 0.12)",
+            yAxisID: "y2",
+            tension: 0.25
+          },
+          {
+            label: "Interactions (step)",
+            data: interactions,
+            borderColor: "#ef6c00",
+            backgroundColor: "rgba(239, 108, 0, 0.12)",
+            yAxisID: "y2",
+            tension: 0.25
+          },
+          {
+            label: "LLM Calls (step)",
+            data: llmCalls,
+            borderColor: "#6a1b9a",
+            backgroundColor: "rgba(106, 27, 154, 0.12)",
+            yAxisID: "y2",
+            tension: 0.25
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            position: "left",
+            title: {display: true, text: "Employment %"}
+          },
+          y1: {
+            position: "right",
+            grid: {drawOnChartArea: false},
+            title: {display: true, text: "Debt $"}
+          },
+          y2: {
+            position: "right",
+            grid: {drawOnChartArea: false},
+            min: 0,
+            title: {display: true, text: "Events / LLM Calls"}
+          }
+        }
+      }
+    });
+  }
+
+  function summarizeLlm(llmData) {
+    if (!llmData || !llmData.enabled) return "";
+    const stats = llmData.stats || {};
+    return " | LLM calls(total): " + (stats.calls_total || 0) +
+      ", errors(total): " + (stats.errors_total || 0) +
+      ", tokens(total p/c): " + (stats.prompt_tokens_total || 0) + "/" + (stats.completion_tokens_total || 0);
+  }
+
+  function renderRiskHouseholds(rows) {
+    if (!rows || rows.length === 0) {
+      $("#riskHouseholdTbody").html("<tr><td colspan='8' style='color:#777'>No data.</td></tr>");
+      return;
+    }
+    const html = rows.map(function(row) {
+      return "<tr>" +
+        "<td>" + row.household_id + "</td>" +
+        "<td>" + row.city_zone + "</td>" +
+        "<td>" + row.housing_mode + "</td>" +
+        "<td>" + row.members + "</td>" +
+        "<td>" + fmtMoney(row.monthly_income) + "</td>" +
+        "<td>" + fmtMoney(row.liquid_cash) + "</td>" +
+        "<td>" + fmtMoney(row.debt) + "</td>" +
+        "<td>" + row.debt_to_liquid_ratio.toFixed(3) + "</td>" +
+        "</tr>";
+    }).join("");
+    $("#riskHouseholdTbody").html(html);
+  }
+
+  function renderFraudRows(rows) {
+    if (!rows || rows.length === 0) {
+      $("#fraudTbody").html("<tr><td colspan='7' style='color:#777'>No fraud records in this run.</td></tr>");
+      return;
+    }
+    const html = rows.map(function(row) {
+      return "<tr>" +
+        "<td>" + row.transaction_id + "</td>" +
+        "<td>" + row.step + "</td>" +
+        "<td>" + (row.person_id || "-") + "</td>" +
+        "<td>" + row.category + "</td>" +
+        "<td>" + row.type + "</td>" +
+        "<td>" + fmtMoney(row.amount) + "</td>" +
+        "<td>" + row.note + "</td>" +
+        "</tr>";
+    }).join("");
+    $("#fraudTbody").html(html);
+  }
+
+  function renderInteractionRows(rows) {
+    if (!rows || rows.length === 0) {
+      $("#interactionTbody").html("<tr><td colspan='6' style='color:#777'>No social interaction records in this run.</td></tr>");
+      return;
+    }
+    const html = rows.map(function(row) {
+      return "<tr>" +
+        "<td>" + row.step + "</td>" +
+        "<td>" + row.people + "</td>" +
+        "<td>" + row.relations + "</td>" +
+        "<td>" + row.topic + "</td>" +
+        "<td>" + (row.same_place ? "yes" : "no") + "</td>" +
+        "<td>" + row.distance + "</td>" +
+        "</tr>";
+    }).join("");
+    $("#interactionTbody").html(html);
+  }
+
+  function runFinancialTown() {
+    const runUrl = $("#financialTownRunApiUrl").data("url");
+    const payload = {
+      scenario: $("#scenario").val(),
+      population_profile: $("#populationProfile").val(),
+      active_agent_name: $("#activeAgentName").val(),
+      scripted_population_size: parseInt($("#scriptedPopulationSize").val(), 10),
+      steps: parseInt($("#steps").val(), 10),
+      households: parseInt($("#households").val(), 10),
+      steps_per_day: parseInt($("#stepsPerDay").val(), 10),
+      economy_interval_steps: parseInt($("#economyIntervalSteps").val(), 10),
+      seed: parseInt($("#seed").val(), 10),
+      keep_snapshots: $("#keepSnapshots").is(":checked"),
+      enable_mobility: $("#enableMobility").is(":checked"),
+      enable_social_interaction: $("#enableSocialInteraction").is(":checked"),
+      export_stanford_storage: $("#exportStanfordStorage").is(":checked"),
+      stanford_sim_code: $("#stanfordSimCode").val(),
+      stanford_fork_sim_code: $("#stanfordForkSimCode").val(),
+      update_temp_files_for_simulator_home: $("#updateSimulatorHomeTemp").is(":checked"),
+      enable_llm_agents: $("#enableLlmAgents").is(":checked"),
+      llm_provider: $("#llmProvider").val(),
+      llm_model: $("#llmModel").val(),
+      llm_max_agents_per_step: parseInt($("#llmMaxAgentsPerStep").val(), 10),
+      llm_temperature: parseFloat($("#llmTemperature").val()),
+      llm_strict_mode: $("#llmStrictMode").is(":checked"),
+      llm_disable_rule_social: $("#llmDisableRuleSocial").is(":checked"),
+      enable_llm_economist: $("#enableLlmEconomist").is(":checked"),
+      llm_economist_every_steps: parseInt($("#llmEconomistEverySteps").val(), 10)
+    };
+
+    setStatus("Running simulation...", false);
+    $("#runButton").prop("disabled", true);
+
+    $.ajax({
+      type: "POST",
+      url: runUrl,
+      contentType: "application/json",
+      data: JSON.stringify(payload),
+      success: function(resp) {
+        if (!resp.ok) {
+          setStatus(resp.error || "Run failed.", true);
+          return;
+        }
+        renderKpis(resp.final_metrics || {});
+        renderPolicyMacro(resp.policy || {}, resp.macro || {}, resp.run_context || {});
+        renderTrend(resp.history || []);
+        renderRiskHouseholds(resp.top_risk_households || []);
+        renderFraudRows(resp.fraud_samples || []);
+        renderInteractionRows(resp.interaction_samples || []);
+        renderStanfordExport(resp.stanford_export || {});
+        setStatus("Completed run successfully." + summarizeLlm(resp.llm || {}), false);
+      },
+      error: function(xhr) {
+        let msg = "Run failed.";
+        if (xhr && xhr.responseJSON && xhr.responseJSON.error) {
+          msg = xhr.responseJSON.error;
+        }
+        setStatus(msg, true);
+      },
+      complete: function() {
+        $("#runButton").prop("disabled", false);
+      }
+    });
+  }
+
+  $(document).ready(function() {
+    $("#populationProfile").on("change", function() {
+      const profile = $(this).val();
+      if (profile === "stanford_n3") {
+        $("#households").val(3);
+        $("#economyIntervalSteps").val(24);
+        $("#stepsPerDay").val(24);
+        $("#llmMaxAgentsPerStep").val(3);
+        $("#enableLlmAgents").prop("checked", true);
+        $("#scriptedPopulationSize").val(2);
+      } else if (profile === "single_agent_world") {
+        $("#households").val(101);
+        $("#economyIntervalSteps").val(24);
+        $("#stepsPerDay").val(24);
+        $("#llmMaxAgentsPerStep").val(1);
+        $("#enableLlmAgents").prop("checked", true);
+        $("#scriptedPopulationSize").val(100);
+      } else if (profile === "synthetic") {
+        $("#households").val(120);
+        $("#economyIntervalSteps").val(1);
+        $("#llmMaxAgentsPerStep").val(12);
+      }
+    });
+    $("#llmProvider").on("change", function() {
+      const provider = $(this).val();
+      const modelField = $("#llmModel");
+      const current = (modelField.val() || "").trim();
+      if (provider === "gemini" && (!current || current.indexOf("gpt-") === 0)) {
+        modelField.val("gemini-1.5-flash");
+      } else if (provider === "openai" && (!current || current.indexOf("gemini-") === 0)) {
+        modelField.val("gpt-4o-mini");
+      }
+    });
+    $("#runButton").on("click", function() {
+      runFinancialTown();
+    });
+  });
+</script>

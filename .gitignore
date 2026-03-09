@@ -94,10 +94,13 @@ celerybeat-schedule
 # virtualenv
 venv/
 ENV/
+.venv/
+
+# Financial Town runtime outputs
+financial_town/output/
 
 # Spyder project settings
 .spyderproject
 
 # Rope project settings
-.ropeproject.venv/
-.venv/
+.ropeproject

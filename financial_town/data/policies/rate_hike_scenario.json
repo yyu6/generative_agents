@@ -1,0 +1,36 @@
+{
+  "name": "rate_hike",
+  "initial_policy_overrides": {
+    "central_bank_rate": 0.045,
+    "loan_rate_spread": 0.035
+  },
+  "initial_macro_overrides": {
+    "inflation": 0.038,
+    "housing_growth": 0.008
+  },
+  "events": [
+    {
+      "step": 4,
+      "note": "Further rate hikes to fight inflation.",
+      "policy": {
+        "central_bank_rate": 0.056,
+        "loan_rate_spread": 0.04
+      },
+      "macro": {
+        "inflation": 0.031,
+        "gdp_growth": 0.01
+      }
+    },
+    {
+      "step": 10,
+      "note": "Rates stabilize and labor market cools gradually.",
+      "policy": {
+        "promotion_boost": -0.004
+      },
+      "macro": {
+        "unemployment_rate": 0.062,
+        "housing_growth": 0.002
+      }
+    }
+  ]
+}

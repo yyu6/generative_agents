@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+
+{% block content %}
+<div class="container" style="padding-top: 24px; padding-bottom: 64px;">
+  <div class="row">
+    <div class="col-md-12">
+      <h1 style="font-size: 34px; margin-bottom: 6px;">Financial Town Studio</h1>
+      <p style="color: #666; font-size: 16px;">
+        Scenario-based simulator for jobs, cashflow, loans, housing, policy shocks, and fraud signals.
+      </p>
+      <p style="margin-top: 12px;">
+        <a href="/" class="btn btn-default">Landing</a>
+        <a href="/simulator_home" class="btn btn-default">Generative Town</a>
+      </p>
+    </div>
+  </div>
+
+  <hr style="border-color: #d4d4d4;">
+
+  <div class="row">
+    <div class="col-md-4">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Run Setup</strong>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label for="populationProfile">Population Profile</label>
+            <select class="form-control" id="populationProfile">
+              <option value="single_agent_world" {% if default_population_profile == "single_agent_world" %}selected{% endif %}>single_agent_world (1 free agent + scripted population)</option>
+              <option value="stanford_n3" {% if default_population_profile == "stanford_n3" %}selected{% endif %}>stanford_n3 (Isabella/Maria/Klaus)</option>
+              <option value="synthetic" {% if default_population_profile == "synthetic" %}selected{% endif %}>synthetic</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="activeAgentName">Active Agent Name</label>
+            <input id="activeAgentName" class="form-control" type="text" value="{{default_active_agent_name}}">
+          </div>
+          <div class="form-group">
+            <label for="scriptedPopulationSize">Scripted Population Size</label>
+            <input id="scriptedPopulationSize" class="form-control" type="number" min="1" max="2000" value="{{default_scripted_population_size}}">
+          </div>
+          <div class="form-group">
+            <label for="scenario">Scenario</label>
+            <select class="form-control" id="scenario">
+              {% for s in scenario_options %}
+                <option value="{{s}}">{{s}}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="steps">Steps</label>
+            <input id="steps" class="form-control" type="number" min="1" max="240" value="{{default_steps}}">
+          </div>
+          <div class="form-group">
+            <label for="households">Households</label>
+            <input id="households" class="form-control" type="number" min="1" max="500" value="{{default_households}}">
+            <div style="font-size: 12px; color: #777; margin-top: 4px;">
+              Ignored when profile = <code>stanford_n3</code>.
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="stepsPerDay">Steps Per Day</label>
+            <input id="stepsPerDay" class="form-control" type="number" min="4" max="96" value="{{default_steps_per_day}}">
+          </div>
+          <div class="form-group">
+            <label for="economyIntervalSteps">Economy Interval (steps)</label>
+            <input id="economyIntervalSteps" class="form-control" type="number" min="1" max="240" value="{{default_economy_interval_steps}}">
+          </div>
+          <div class="form-group">
+            <label for="seed">Seed</label>
+            <input id="seed" class="form-control" type="number" min="1" max="99999999" value="{{default_seed}}">
+          </div>
+          <div class="checkbox">
+            <label>
+              <input id="keepSnapshots" type="checkbox" checked>
+              keep step snapshots
+            </label>
+          </div>
+          <div class="checkbox">
+            <label>
+              <input id="enableMobility" type="checkbox" checked disabled>
+              enable daily commute (locked by LLM mode)
+            </label>
+          </div>
+          <div class="checkbox">
+            <label>
+              <input id="enableSocialInteraction" type="checkbox" checked disabled>
+              enable social interaction and influence spread (LLM-driven)
+            </label>
+          </div>
+          <hr style="margin: 10px 0;">
+          <div class="checkbox">
+            <label>
+              <input id="enableLlmAgents" type="checkbox" checked disabled>
+              enable LLM agents (decision + interaction, locked)
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="llmProvider">LLM Provider</label>
+            <select class="form-control" id="llmProvider">
+              <option value="gemini" {% if default_llm_provider == "gemini" %}selected{% endif %}>gemini</option>
+              <option value="openai" {% if default_llm_provider == "openai" %}selected{% endif %}>openai</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="llmModel">LLM Model</label>
+            <input id="llmModel" class="form-control" type="text" value="{{default_llm_model}}">
+          </div>
+          <div class="form-group">
+            <label for="llmMaxAgentsPerStep">LLM Max Agents / Step</label>
+            <input id="llmMaxAgentsPerStep" class="form-control" type="number" min="1" max="300" value="{{default_llm_max_agents_per_step}}">
+          </div>
+          <div class="form-group">
+            <label for="llmTemperature">LLM Temperature</label>
+            <input id="llmTemperature" class="form-control" type="number" min="0" max="1.5" step="0.05" value="{{default_llm_temperature}}">
+          </div>
+          <div class="checkbox">
+            <label>
+              <input id="llmStrictMode" type="checkbox" checked disabled>
+              LLM strict mode (locked)
+            </label>
+          </div>
+          <div class="checkbox">
+            <label>
+              <input id="llmDisableRuleSocial" type="checkbox" checked disabled>
+              rule social engine disabled (locked)
+            </label>
+          </div>
+          <div class="checkbox">
+            <label>
+              <input id="enableLlmEconomist" type="checkbox" {% if default_enable_llm_economist %}checked{% endif %}>
+              enable LLM-Economist macro event generation
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="llmEconomistEverySteps">LLM-Economist Every N Steps</label>
+            <input id="llmEconomistEverySteps" class="form-control" type="number" min="1" max="240" value="{{default_llm_economist_every_steps}}">
+          </div>
+          <div style="font-size: 12px; color: #777; margin-bottom: 8px;">
+            API key is read from environment: <code>GOOGLE_API_KEY</code> or <code>OPENAI_API_KEY</code>.
+          </div>
+          <div class="checkbox">
+            <label>
+              <input id="exportStanfordStorage" type="checkbox" checked>
+              export Stanford-compatible storage files
+            </label>
+          </div>
+          <div class="checkbox">
+            <label>
+              <input id="updateSimulatorHomeTemp" type="checkbox" checked>
+              refresh <code>/simulator_home</code> pointer to this run
+            </label>
+          </div>
+          <div class="form-group">
+            <label for="stanfordSimCode">Stanford Sim Code (optional)</label>
+            <input id="stanfordSimCode" class="form-control" type="text" placeholder="auto if empty">
+          </div>
+          <div class="form-group">
+            <label for="stanfordForkSimCode">Fork Sim Code</label>
+            <input id="stanfordForkSimCode" class="form-control" type="text" value="{{default_fork_sim_code}}">
+          </div>
+          <button id="runButton" class="btn btn-primary" style="width: 100%;">Run Simulation</button>
+          <p id="runStatus" style="margin-top: 10px; color: #777;">Ready.</p>
+        </div>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Policy & Macro</strong>
+        </div>
+        <div class="panel-body" id="policyMacroSummary" style="font-size: 13px; line-height: 1.55;">
+          <div>Run a simulation to see policy and macro state.</div>
+        </div>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Stanford Replay Export</strong>
+        </div>
+        <div class="panel-body" id="stanfordExportSummary" style="font-size: 13px; line-height: 1.55;">
+          <div>Run a simulation with export enabled to get replay links.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="row">
+        <div class="col-md-3">
+          <div class="panel panel-default">
+            <div class="panel-body">
+              <div style="font-size: 12px; color: #666;">Population</div>
+              <div id="kpiPopulation" style="font-size: 26px; font-weight: 700;">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="panel panel-default">
+            <div class="panel-body">
+              <div style="font-size: 12px; color: #666;">Employed Rate</div>
+              <div id="kpiEmployment" style="font-size: 26px; font-weight: 700;">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="panel panel-default">
+            <div class="panel-body">
+              <div style="font-size: 12px; color: #666;">Total Debt</div>
+              <div id="kpiDebt" style="font-size: 22px; font-weight: 700;">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="panel panel-default">
+            <div class="panel-body">
+              <div style="font-size: 12px; color: #666;">Fraud (Total)</div>
+              <div id="kpiFraud" style="font-size: 26px; font-weight: 700;">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading"><strong>Trend View</strong></div>
+        <div class="panel-body">
+          <canvas id="trendChart" height="120"></canvas>
+        </div>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading"><strong>Risk Households (Top 12)</strong></div>
+        <div class="panel-body" style="padding-top: 0;">
+          <table class="table table-striped table-condensed" style="margin-top: 10px;">
+            <thead>
+              <tr>
+                <th>Household</th>
+                <th>Zone</th>
+                <th>Mode</th>
+                <th>Members</th>
+                <th>Monthly Income</th>
+                <th>Liquid Cash</th>
+                <th>Debt</th>
+                <th>Debt/Liquid</th>
+              </tr>
+            </thead>
+            <tbody id="riskHouseholdTbody">
+              <tr><td colspan="8" style="color: #777;">Run a simulation to populate this table.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading"><strong>Fraud Samples (Latest 30)</strong></div>
+        <div class="panel-body" style="padding-top: 0;">
+          <table class="table table-striped table-condensed" style="margin-top: 10px;">
+            <thead>
+              <tr>
+                <th>TxID</th>
+                <th>Step</th>
+                <th>Person</th>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="fraudTbody">
+              <tr><td colspan="7" style="color: #777;">Run a simulation to populate this table.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading"><strong>Interaction Samples (Latest 40)</strong></div>
+        <div class="panel-body" style="padding-top: 0;">
+          <table class="table table-striped table-condensed" style="margin-top: 10px;">
+            <thead>
+              <tr>
+                <th>Step</th>
+                <th>People</th>
+                <th>Relations</th>
+                <th>Topic</th>
+                <th>Same Place</th>
+                <th>Distance</th>
+              </tr>
+            </thead>
+            <tbody id="interactionTbody">
+              <tr><td colspan="6" style="color: #777;">Run a simulation to populate this table.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="financialTownRunApiUrl" data-url="{% url 'financial_town_run' %}" style="display:none;"></div>
+{% endblock content %}
+
+{% block js_content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% include 'financial_town/main_script.html' %}
+{% endblock js_content %}

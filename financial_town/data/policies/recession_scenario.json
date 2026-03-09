@@ -1,0 +1,36 @@
+{
+  "name": "recession_stress",
+  "initial_policy_overrides": {},
+  "initial_macro_overrides": {
+    "gdp_growth": -0.01,
+    "inflation": 0.035,
+    "unemployment_rate": 0.072,
+    "housing_growth": -0.01
+  },
+  "events": [
+    {
+      "step": 3,
+      "note": "Demand shock deepens; layoffs increase.",
+      "policy": {
+        "layoff_rate": 0.03
+      },
+      "macro": {
+        "gdp_growth": -0.03,
+        "unemployment_rate": 0.095,
+        "housing_growth": -0.025
+      }
+    },
+    {
+      "step": 8,
+      "note": "Counter-cyclical support package.",
+      "policy": {
+        "stimulus_payment": 120.0,
+        "housing_subsidy": 80.0
+      },
+      "macro": {
+        "gdp_growth": -0.005,
+        "unemployment_rate": 0.085
+      }
+    }
+  ]
+}
